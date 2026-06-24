@@ -2,6 +2,23 @@ version: '3.8'
 
 services:
 
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: imagepipeline
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: rabbitmq
@@ -29,15 +46,9 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   api-server:
     build: ./api-server
-    container_name: api-server
     ports:
       - "8080:8080"
     environment:
@@ -45,10 +56,15 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      # Supabase — estos valores van en .env, nunca en el repo
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      SUPABASE_DB_USER: ${SUPABASE_DB_USER}
+      SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      MONGO_HOST: mongodb
     depends_on:
       rabbitmq:
         condition: service_healthy
-      minio:
+      mongodb:
         condition: service_healthy
 
   image-worker:
@@ -58,13 +74,15 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      SUPABASE_DB_USER: ${SUPABASE_DB_USER}
+      SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
     depends_on:
       rabbitmq:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     deploy:
       replicas: 3
 
 volumes:
+  mongo-data:
   minio-data:
