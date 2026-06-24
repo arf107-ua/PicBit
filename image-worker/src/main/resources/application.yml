@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: image-worker
+
+  # Conexión nativa de Spring Boot con RabbitMQ
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        acknowledge-mode: manual # Clave para que tus workers hagan el ACK manual
+        prefetch: 1              # Procesa las imágenes de 1 en 1 para no saturar la RAM
+
+# ---------------------------------------------------------
+# Variables custom inyectadas con @Value en WorkerConfig.java
+# ---------------------------------------------------------
+rabbitmq:
+  queues:
+    resize: "image.resize"
+    compress: "image.compress"
+    watermark: "image.watermark"
+    dead-letter: "image.dlq"
+
+# ---------------------------------------------------------
+# Variables custom inyectadas con @Value en WorkerConfig y StorageService
+# ---------------------------------------------------------
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:picbit_admin}
+  secret-key: ${MINIO_SECRET_KEY:picbit_password}
+  bucket-source: "images-original"
+  bucket-output: "images-processed"
+
+# ---------------------------------------------------------
+# Logs
+# ---------------------------------------------------------
+logging:
+  level:
+    com.imagepipeline.worker: DEBUG # Para ver tus propios log.info() de MinIO
+    org.springframework.amqp: INFO

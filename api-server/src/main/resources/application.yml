@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${SUPABASE_DB_URL}
+    username: ${SUPABASE_DB_USER}
+    password: ${SUPABASE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5      # Supabase free tier tiene límite de conexiones
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # el schema ya existe en Supabase, JPA solo valida
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    mongodb:
+      uri: mongodb://admin:admin123@${MONGO_HOST:localhost}:27017/imagepipeline?authSource=admin
