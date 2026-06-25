@@ -1,20 +1,55 @@
 spring:
+  application:
+    name: api-server
+
+  # ── PostgreSQL (Supabase) ─────────────────────────────────────────
   datasource:
     url: ${SUPABASE_DB_URL}
     username: ${SUPABASE_DB_USER}
     password: ${SUPABASE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5      # Supabase free tier tiene límite de conexiones
+      maximum-pool-size: 5
       connection-timeout: 30000
 
   jpa:
     hibernate:
-      ddl-auto: validate        # el schema ya existe en Supabase, JPA solo valida
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # ── MongoDB Atlas ─────────────────────────────────────────────────
   data:
     mongodb:
       uri: mongodb://admin:admin123@${MONGO_HOST:localhost}:27017/imagepipeline?authSource=admin
+
+  # ── RabbitMQ ──────────────────────────────────────────────────────
+  rabbitmq:
+    addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
+    listener:
+      simple:
+        acknowledge-mode: auto
+
+  # ── Multipart ────────────────────────────────────────────────────
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
+
+# ── Supabase Storage ─────────────────────────────────────────────────
+supabase:
+  url: ${SUPABASE_URL}
+  key: ${SUPABASE_SERVICE_KEY}
+  storage:
+    bucket: ${SUPABASE_BUCKET:picflow-images}
+
+# ── Servidor ─────────────────────────────────────────────────────────
+server:
+  port: 8080
+
+# ── Logging ──────────────────────────────────────────────────────────
+logging:
+  level:
+    com.imagepipeline: DEBUG
+    org.springframework.web.socket: INFO
