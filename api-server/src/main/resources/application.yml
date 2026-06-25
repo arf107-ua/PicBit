@@ -28,7 +28,10 @@ spring:
 
   # ── RabbitMQ ──────────────────────────────────────────────────────
   rabbitmq:
-    addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: guest
+    password: guest
     listener:
       simple:
         acknowledge-mode: auto

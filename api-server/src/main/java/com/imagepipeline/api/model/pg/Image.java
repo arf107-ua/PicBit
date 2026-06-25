@@ -31,7 +31,7 @@ public class Image {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "storage_key", nullable = false, length = 500)
+    @Column(name = "minio_key", nullable = false, length = 500)
     private String storageKey;
 
     @Column(name = "is_public")
