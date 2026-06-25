@@ -17,15 +17,12 @@ import java.util.UUID;
 public class StorageService {
 
     private final SupabaseConfig supabaseConfig;
-    private final RestTemplate supabaseRestTemplate;
+    private final RestTemplate   supabaseRestTemplate;
 
-    /**
-     * Sube un archivo a Supabase Storage y devuelve la clave (path) del archivo.
-     */
     public String upload(MultipartFile file, String userId) throws IOException {
         String extension = getExtension(file.getOriginalFilename());
         String storageKey = userId + "/" + UUID.randomUUID() + "." + extension;
-        String uploadUrl = buildUploadUrl(storageKey);
+        String uploadUrl  = buildUploadUrl(storageKey);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.valueOf(file.getContentType()));
@@ -37,16 +34,14 @@ public class StorageService {
         );
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("Error subiendo archivo a Supabase Storage: " + response.getStatusCode());
+            throw new RuntimeException("Error subiendo archivo a Supabase Storage: "
+                + response.getStatusCode());
         }
 
         log.info("Archivo subido correctamente: {}", storageKey);
         return storageKey;
     }
 
-    /**
-     * Devuelve la URL pública de un archivo en Supabase Storage.
-     */
     public String getPublicUrl(String storageKey) {
         return supabaseConfig.getSupabaseUrl()
             + "/storage/v1/object/public/"
@@ -54,16 +49,11 @@ public class StorageService {
             + "/" + storageKey;
     }
 
-    /**
-     * Elimina un archivo de Supabase Storage.
-     */
     public void delete(String storageKey) {
         String deleteUrl = buildUploadUrl(storageKey);
         supabaseRestTemplate.delete(deleteUrl);
         log.info("Archivo eliminado: {}", storageKey);
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────
 
     private String buildUploadUrl(String storageKey) {
         return supabaseConfig.getSupabaseUrl()

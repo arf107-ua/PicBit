@@ -33,7 +33,6 @@ public class ResizeJob {
     @Column(nullable = false)
     private Integer height;
 
-    // Custom PostgreSQL enum — needs explicit converter instead of @Enumerated
     @Convert(converter = JobStatusConverter.class)
     @Column(name = "status", columnDefinition = "job_status")
     private JobStatus status = JobStatus.pending;

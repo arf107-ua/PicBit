@@ -18,10 +18,6 @@ public class RabbitMQConsumer {
     private final ResizeService       resizeService;
     private final NotificationService notificationService;
 
-    /**
-     * Recibe el resultado de un resize completado por image-worker.
-     * El worker publica en esta cola cuando termina.
-     */
     @RabbitListener(queues = RabbitMQConfig.QUEUE_IMAGE_RESIZED)
     public void onImageResized(Map<String, Object> message) {
         try {
@@ -37,13 +33,10 @@ public class RabbitMQConsumer {
         }
     }
 
-    /**
-     * Recibe el evento de nueva imagen subida y notifica al feed.
-     */
     @RabbitListener(queues = RabbitMQConfig.QUEUE_IMAGE_UPLOADED)
     public void onImageUploaded(Map<String, Object> message) {
         try {
-            String imageId = (String) message.get("imageId");
+            String imageId  = (String) message.get("imageId");
             String authorId = (String) message.get("userId");
 
             log.info("Nueva imagen subida: imageId={} authorId={}", imageId, authorId);

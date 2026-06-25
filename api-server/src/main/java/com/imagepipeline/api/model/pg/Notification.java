@@ -27,7 +27,6 @@ public class Notification {
     @JoinColumn(name = "sender_id")
     private User sender;
 
-    // Custom PostgreSQL enum — needs explicit converter instead of @Enumerated
     @Convert(converter = NotificationTypeConverter.class)
     @Column(name = "type", columnDefinition = "notification_type")
     private NotificationType type;

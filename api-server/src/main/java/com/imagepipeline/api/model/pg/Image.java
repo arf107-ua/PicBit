@@ -22,7 +22,6 @@ public class Image {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // ID del documento en MongoDB (puente entre las dos BDs)
     @Column(name = "mongo_id", unique = true, nullable = false, length = 24)
     private String mongoId;
 
@@ -32,7 +31,6 @@ public class Image {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // Ruta del archivo en Supabase Storage
     @Column(name = "storage_key", nullable = false, length = 500)
     private String storageKey;
 
