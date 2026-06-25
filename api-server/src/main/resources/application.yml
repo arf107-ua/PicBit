@@ -11,6 +11,7 @@ spring:
     hikari:
       maximum-pool-size: 5
       connection-timeout: 30000
+      idle-timeout: 10000
 
   jpa:
     hibernate:
@@ -18,8 +19,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
 
-  # ── MongoDB Atlas ─────────────────────────────────────────────────
+  # ── MongoDB ───────────────────────────────────────────────────────
   data:
     mongodb:
       uri: mongodb://admin:admin123@${MONGO_HOST:localhost}:27017/imagepipeline?authSource=admin
@@ -44,6 +46,12 @@ supabase:
   storage:
     bucket: ${SUPABASE_BUCKET:picflow-images}
 
+# ── JWT ───────────────────────────────────────────────────────────────
+jwt:
+  # Min 32 chars for HS256. In production use a long random string in .env
+  secret: ${JWT_SECRET:my-super-secret-key-change-in-production-32chars}
+  expiration-ms: 86400000   # 24 hours
+
 # ── Servidor ─────────────────────────────────────────────────────────
 server:
   port: 8080
@@ -53,3 +61,4 @@ logging:
   level:
     com.imagepipeline: DEBUG
     org.springframework.web.socket: INFO
+    org.springframework.security: INFO

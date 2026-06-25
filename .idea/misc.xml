@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="KubernetesApiPersistence">{}</component>
-  <component name="MavenRunner">
-    <option name="delegateBuildToMaven" value="true" />
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/api-server/pom.xml" />
+        <option value="$PROJECT_DIR$/image-worker/pom.xml" />
+      </list>
+    </option>
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
     <entry key="Project Default">

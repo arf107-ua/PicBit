@@ -1,6 +1,9 @@
 package com.imagepipeline.api.service;
 
-import com.imagepipeline.api.model.dto.Dtos.*;
+import com.imagepipeline.api.model.dto.ImageResponse;
+import com.imagepipeline.api.model.dto.ResizeJobResponse;
+import com.imagepipeline.api.model.dto.ResizeRequest;
+import com.imagepipeline.api.model.dto.UploadImageRequest;
 import com.imagepipeline.api.model.mongo.ImageDocument;
 import com.imagepipeline.api.model.pg.Image;
 import com.imagepipeline.api.model.pg.ResizeJob;
@@ -15,8 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,154 +26,163 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ImageService {
 
-    private final ImageRepository        imageRepository;
-    private final ImageDocumentRepository imageDocumentRepository;
-    private final ResizeJobRepository    resizeJobRepository;
-    private final UserRepository         userRepository;
-    private final StorageService         storageService;
-    private final QueueService           queueService;
+    private final ImageRepository          imageRepository;
+    private final ImageDocumentRepository  imageDocumentRepository;
+    private final ResizeJobRepository      resizeJobRepository;
+    private final UserRepository           userRepository;
+    private final StorageService           storageService;
+    private final QueueService             queueService;
 
-    /**
-     * Sube una imagen: guarda en Supabase Storage, MongoDB y PostgreSQL.
-     */
+    // ── Upload ───────────────────────────────────────────────────────
+
     @Transactional
     public ImageResponse upload(MultipartFile file, UploadImageRequest request, UUID userId) throws Exception {
-
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // 1. Subir archivo a Supabase Storage
+        // 1. Upload file to Supabase Storage
         String storageKey = storageService.upload(file, userId.toString());
 
-        // 2. Guardar metadatos ricos en MongoDB
+        // 2. Save rich metadata in MongoDB
         ImageDocument doc = ImageDocument.builder()
-            .tags(request.getTags())
-            .originalDimensions(new ImageDocument.Dimensions(null, null)) // se rellena con EXIF si hay
-            .createdAt(java.time.LocalDateTime.now())
-            .build();
+                .tags(request.getTags())
+                .originalDimensions(new ImageDocument.Dimensions(null, null))
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
         ImageDocument savedDoc = imageDocumentRepository.save(doc);
 
-        // 3. Guardar referencia ligera en PostgreSQL
+        // 3. Save lightweight reference in PostgreSQL
         Image image = Image.builder()
-            .user(user)
-            .mongoId(savedDoc.getId())
-            .title(request.getTitle())
-            .description(request.getDescription())
-            .storageKey(storageKey)
-            .isPublic(request.getIsPublic())
-            .build();
+                .user(user)
+                .mongoId(savedDoc.getId())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .storageKey(storageKey)
+                .isPublic(request.getIsPublic())
+                .build();
         Image savedImage = imageRepository.save(image);
 
-        // 4. Actualizar MongoDB con el ID de PG (puente bidireccional)
+        // 4. Update MongoDB with PG id (bidirectional bridge)
         savedDoc.setPgImageId(savedImage.getId().toString());
         imageDocumentRepository.save(savedDoc);
 
-        // 5. Publicar evento en RabbitMQ para notificar a seguidores
+        // 5. Publish event to RabbitMQ
         queueService.publishImageUploaded(savedImage.getId().toString(), userId.toString());
 
         log.info("Imagen subida: pg={} mongo={}", savedImage.getId(), savedDoc.getId());
         return toResponse(savedImage, savedDoc);
     }
 
-    /**
-     * Obtiene una imagen combinando datos de PG y MongoDB.
-     */
+    // ── Get by id ────────────────────────────────────────────────────
+
     public ImageResponse getById(UUID imageId) {
         Image image = imageRepository.findById(imageId)
-            .orElseThrow(() -> new RuntimeException("Imagen no encontrada"));
-
+                .orElseThrow(() -> new RuntimeException("Imagen no encontrada"));
         ImageDocument doc = imageDocumentRepository.findById(image.getMongoId())
-            .orElseThrow(() -> new RuntimeException("Metadatos no encontrados"));
-
+                .orElseThrow(() -> new RuntimeException("Metadatos no encontrados"));
         return toResponse(image, doc);
     }
 
+    // ── Feed ─────────────────────────────────────────────────────────
+
     /**
-     * Feed personalizado del usuario.
+     * Fixed: was doing 1 PG query + N MongoDB queries (N+1 problem).
+     * Now does 1 PG query + 1 MongoDB query using findAllById.
      */
     public List<ImageResponse> getFeed(UUID userId) {
-        return imageRepository.findFeedForUser(userId).stream()
-            .map(image -> {
-                ImageDocument doc = imageDocumentRepository
-                    .findById(image.getMongoId()).orElse(new ImageDocument());
-                return toResponse(image, doc);
-            })
-            .collect(Collectors.toList());
+        List<Image> images = imageRepository.findFeedForUser(userId);
+        return mergeWithMongoDocuments(images);
     }
 
+    // ── Explore ──────────────────────────────────────────────────────
+
     /**
-     * Imágenes públicas (explorar).
+     * Same fix applied here.
      */
     public List<ImageResponse> getPublic() {
-        return imageRepository.findByIsPublicTrueOrderByCreatedAtDesc().stream()
-            .map(image -> {
-                ImageDocument doc = imageDocumentRepository
-                    .findById(image.getMongoId()).orElse(new ImageDocument());
-                return toResponse(image, doc);
-            })
-            .collect(Collectors.toList());
+        List<Image> images = imageRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+        return mergeWithMongoDocuments(images);
     }
 
-    /**
-     * Crea un job de resize y lo publica en RabbitMQ.
-     */
+    // ── Resize ───────────────────────────────────────────────────────
+
     @Transactional
     public ResizeJobResponse requestResize(ResizeRequest request, UUID userId) {
         Image image = imageRepository.findById(UUID.fromString(request.getImageId()))
-            .orElseThrow(() -> new RuntimeException("Imagen no encontrada"));
-
+                .orElseThrow(() -> new RuntimeException("Imagen no encontrada"));
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // Guardar el job en PG con estado pending
         ResizeJob job = ResizeJob.builder()
-            .image(image)
-            .user(user)
-            .width(request.getWidth())
-            .height(request.getHeight())
-            .status(ResizeJob.JobStatus.pending)
-            .build();
+                .image(image)
+                .user(user)
+                .width(request.getWidth())
+                .height(request.getHeight())
+                .status(ResizeJob.JobStatus.pending)
+                .build();
         ResizeJob savedJob = resizeJobRepository.save(job);
 
-        // Publicar en RabbitMQ para que image-worker lo procese
         queueService.publishResizeJob(
-            savedJob.getId().toString(),
-            image.getStorageKey(),
-            userId.toString(),
-            request.getWidth(),
-            request.getHeight()
+                savedJob.getId().toString(),
+                image.getStorageKey(),
+                userId.toString(),
+                request.getWidth(),
+                request.getHeight()
         );
 
         log.info("Resize job creado: {}", savedJob.getId());
         return toJobResponse(savedJob);
     }
 
-    /**
-     * Actualiza el job tras recibir la notificación del worker.
-     */
+    // ── Complete resize (called by worker callback) ───────────────────
+
     @Transactional
     public void completeResizeJob(String jobId, String resultKey) {
         ResizeJob job = resizeJobRepository.findById(UUID.fromString(jobId))
-            .orElseThrow(() -> new RuntimeException("Job no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Job no encontrado"));
 
         job.setStatus(ResizeJob.JobStatus.done);
         job.setResultKey(resultKey);
         resizeJobRepository.save(job);
 
-        // Actualizar historial en MongoDB
+        // Append processing record to MongoDB history
         imageDocumentRepository.findById(job.getImage().getMongoId()).ifPresent(doc -> {
             ImageDocument.ProcessingRecord record = new ImageDocument.ProcessingRecord(
-                "resize", resultKey, job.getWidth(), job.getHeight(), java.time.LocalDateTime.now()
+                    "resize", resultKey, job.getWidth(), job.getHeight(),
+                    java.time.LocalDateTime.now()
             );
             if (doc.getProcessingHistory() == null) {
-                doc.setProcessingHistory(new java.util.ArrayList<>());
+                doc.setProcessingHistory(new ArrayList<>());
             }
             doc.getProcessingHistory().add(record);
             imageDocumentRepository.save(doc);
         });
     }
 
-    // ── Mappers ─────────────────────────────────────────────────────
+    // ── Private helpers ──────────────────────────────────────────────
+
+    /**
+     * Fetches MongoDB documents for a list of PG images in a single query,
+     * then zips them together. Avoids N+1 problem.
+     */
+    private List<ImageResponse> mergeWithMongoDocuments(List<Image> images) {
+        if (images.isEmpty()) return Collections.emptyList();
+
+        List<String> mongoIds = images.stream()
+                .map(Image::getMongoId)
+                .toList();
+
+        // Single MongoDB query for all documents
+        Map<String, ImageDocument> docsById = imageDocumentRepository
+                .findAllById(mongoIds)
+                .stream()
+                .collect(Collectors.toMap(ImageDocument::getId, d -> d));
+
+        return images.stream()
+                .map(image -> toResponse(image,
+                        docsById.getOrDefault(image.getMongoId(), new ImageDocument())))
+                .toList();
+    }
 
     private ImageResponse toResponse(Image image, ImageDocument doc) {
         ImageResponse response = new ImageResponse();
@@ -211,7 +222,7 @@ public class ImageService {
         response.setWidth(job.getWidth());
         response.setHeight(job.getHeight());
         response.setResultUrl(job.getResultKey() != null
-            ? storageService.getPublicUrl(job.getResultKey()) : null);
+                ? storageService.getPublicUrl(job.getResultKey()) : null);
         response.setCreatedAt(job.getCreatedAt() != null ? job.getCreatedAt().toString() : null);
         return response;
     }

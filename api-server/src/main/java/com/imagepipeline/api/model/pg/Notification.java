@@ -1,5 +1,6 @@
 package com.imagepipeline.api.model.pg;
 
+import com.imagepipeline.api.config.NotificationTypeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -26,8 +27,9 @@ public class Notification {
     @JoinColumn(name = "sender_id")
     private User sender;
 
-    @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "notification_type")
+    // Custom PostgreSQL enum — needs explicit converter instead of @Enumerated
+    @Convert(converter = NotificationTypeConverter.class)
+    @Column(name = "type", columnDefinition = "notification_type")
     private NotificationType type;
 
     @ManyToOne(fetch = FetchType.LAZY)

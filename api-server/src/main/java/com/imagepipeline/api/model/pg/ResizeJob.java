@@ -1,5 +1,6 @@
 package com.imagepipeline.api.model.pg;
 
+import com.imagepipeline.api.config.JobStatusConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -32,8 +33,9 @@ public class ResizeJob {
     @Column(nullable = false)
     private Integer height;
 
-    @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "job_status")
+    // Custom PostgreSQL enum — needs explicit converter instead of @Enumerated
+    @Convert(converter = JobStatusConverter.class)
+    @Column(name = "status", columnDefinition = "job_status")
     private JobStatus status = JobStatus.pending;
 
     @Column(name = "result_key", length = 500)
