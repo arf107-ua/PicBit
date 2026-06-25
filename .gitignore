@@ -34,6 +34,7 @@ application-local.yml
 
 # Docker
 .env
+!.env.example
 
 # OS
 .DS_Store
