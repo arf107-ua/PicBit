@@ -24,7 +24,7 @@ spring:
   # ── MongoDB ───────────────────────────────────────────────────────
   data:
     mongodb:
-      uri: mongodb://admin:admin123@${MONGO_HOST:localhost}:27017/imagepipeline?authSource=admin
+      uri: ${MONGODB_URI}
 
   # ── RabbitMQ ──────────────────────────────────────────────────────
   rabbitmq:
