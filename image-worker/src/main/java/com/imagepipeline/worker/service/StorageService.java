@@ -1,101 +1,71 @@
 package com.imagepipeline.worker.service;
 
-import io.minio.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders; // <--- ESTE ES EL CORRECTO
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
-/**
- * Handles all communication with MinIO (object storage).
- *
- * Two buckets:
- *   - images-original  → where the api-server stores the uploaded image
- *   - images-processed → where workers save the result
- */
+@Slf4j
 @Service
 public class StorageService {
 
-    private static final Logger log = LoggerFactory.getLogger(StorageService.class);
+    private final RestTemplate restTemplate;
 
-    private final MinioClient minioClient;
+    @Value("${supabase.url}")
+    private String supabaseUrl;
 
-    @Value("${minio.bucket-source}")
+    @Value("${supabase.key}")
+    private String supabaseKey;
+
+    @Value("${minio.bucket-source}") // Reutilizamos el nombre de la variable de configuración
     private String sourceBucket;
 
     @Value("${minio.bucket-output}")
     private String outputBucket;
 
-    public StorageService(MinioClient minioClient) {
-        this.minioClient = minioClient;
+    public StorageService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
-
-    // ---------------------------------------------------------------
-    // Download original image from source bucket
-    // Returns an InputStream — caller is responsible for closing it.
-    // ---------------------------------------------------------------
 
     public InputStream download(String imageKey) {
-        try {
-            log.info("Downloading {} from bucket {}", imageKey, sourceBucket);
+        log.info("Descargando {} desde Supabase bucket {}", imageKey, sourceBucket);
 
-            ensureBucketExists(sourceBucket);
+        // La URL de Supabase para descargar archivos públicos
+        String url = supabaseUrl + "/storage/v1/object/public/" + sourceBucket + "/" + imageKey;
 
-            return minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket(sourceBucket)
-                            .object(imageKey)
-                            .build()
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to download image: " + imageKey, e);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("apikey", supabaseKey);
+
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), byte[].class);
+
+        if (response.getBody() == null) {
+            throw new RuntimeException("No se pudo descargar la imagen: " + imageKey);
         }
-    }
 
-    // ---------------------------------------------------------------
-    // Upload processed image to output bucket
-    // ---------------------------------------------------------------
+        return new ByteArrayInputStream(response.getBody());
+    }
 
     public void upload(String resultKey, byte[] data, String contentType) {
-        try {
-            log.info("Uploading {} ({} bytes) to bucket {}", resultKey, data.length, outputBucket);
+        log.info("Subiendo {} a Supabase bucket {}", resultKey, outputBucket);
 
-            ensureBucketExists(outputBucket);
+        String url = supabaseUrl + "/storage/v1/object/" + outputBucket + "/" + resultKey;
 
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(outputBucket)
-                            .object(resultKey)
-                            .stream(new ByteArrayInputStream(data), data.length, -1)
-                            .contentType(contentType)
-                            .build()
-            );
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("apikey", supabaseKey);
+        headers.set("Authorization", "Bearer " + supabaseKey);
+        headers.setContentType(MediaType.parseMediaType(contentType));
 
-            log.info("Upload complete: {}", resultKey);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to upload result: " + resultKey, e);
-        }
-    }
+        restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(data, headers), String.class);
 
-    // ---------------------------------------------------------------
-    // Creates a bucket if it does not exist yet.
-    // Called before every operation to avoid startup ordering issues.
-    // ---------------------------------------------------------------
-
-    private void ensureBucketExists(String bucket) {
-        try {
-            boolean exists = minioClient.bucketExists(
-                    BucketExistsArgs.builder().bucket(bucket).build()
-            );
-            if (!exists) {
-                minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
-                log.info("Created bucket: {}", bucket);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to ensure bucket exists: " + bucket, e);
-        }
+        log.info("Subida completada: {}", resultKey);
     }
 }

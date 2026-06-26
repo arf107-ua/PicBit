@@ -10,12 +10,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  minio:
-    endpoint: ${MINIO_ENDPOINT:http://minio:9000}
-    access-key: ${MINIO_ACCESS_KEY:minioadmin}
-    secret-key: ${MINIO_SECRET_KEY:minioadmin}
-    bucket-source: ${MINIO_BUCKET_SOURCE:images-original}
-    bucket-output: ${MINIO_BUCKET_OUTPUT:images-processed}
+  supabase:
+    url: ${SUPABASE_URL}
+    key: ${SUPABASE_SERVICE_KEY}
 
   rabbitmq:
     queues:

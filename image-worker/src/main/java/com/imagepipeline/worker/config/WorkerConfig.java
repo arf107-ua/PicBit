@@ -1,6 +1,5 @@
 package com.imagepipeline.worker.config;
 
-import io.minio.MinioClient;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -8,6 +7,8 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
 
 @Configuration
 public class WorkerConfig {
@@ -27,19 +28,6 @@ public class WorkerConfig {
 
     @Value("${rabbitmq.queues.dead-letter}")
     private String deadLetterQueue;
-
-    // ---------------------------------------------------------------
-    // MinIO config (read from application.yml / env vars)
-    // ---------------------------------------------------------------
-
-    @Value("${minio.endpoint}")
-    private String minioEndpoint;
-
-    @Value("${minio.access-key}")
-    private String minioAccessKey;
-
-    @Value("${minio.secret-key}")
-    private String minioSecretKey;
 
     // ---------------------------------------------------------------
     // RabbitMQ: declare queues
@@ -94,15 +82,9 @@ public class WorkerConfig {
         return template;
     }
 
-    // ---------------------------------------------------------------
-    // MinIO client
-    // ---------------------------------------------------------------
-
     @Bean
-    public MinioClient minioClient() {
-        return MinioClient.builder()
-                .endpoint(minioEndpoint)
-                .credentials(minioAccessKey, minioSecretKey)
-                .build();
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
+
 }
