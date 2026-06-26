@@ -35,6 +35,11 @@ spring:
     listener:
       simple:
         acknowledge-mode: auto
+    queues:
+      resize: image.resize
+      compress: image.compress
+      watermark: image.watermark
+      dead-letter: image.dlq
 
   # ── Multipart ────────────────────────────────────────────────────
   servlet:

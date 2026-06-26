@@ -6,7 +6,30 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: none # El worker NO crea tablas, solo las lee/actualiza
+      ddl-auto: none # El worker no crea tablas, solo las lee/actualiza
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket-source: ${MINIO_BUCKET_SOURCE:images-original}
+    bucket-output: ${MINIO_BUCKET_OUTPUT:images-processed}
+
+  rabbitmq:
+    queues:
+      resize: image.resize
+      compress: image.compress
+      watermark: image.watermark
+      dead-letter: image.dlq
+
+  spring.rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1

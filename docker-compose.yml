@@ -89,7 +89,7 @@ services:
       RABBITMQ_QUEUES_WATERMARK: image.watermark
       RABBITMQ_QUEUES_DEAD_LETTER: image.dlq
       MINIO_BUCKET_SOURCE: images-original
-      MINIO_BUCKET_DESTINATION: images-processed
+      MINIO_BUCKET_OUTPUT: images-processed
     depends_on:
       rabbitmq:
         condition: service_healthy
