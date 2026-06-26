@@ -13,9 +13,9 @@ public class RabbitMQConfig {
     // ── Nombres de colas ────────────────────────────────────────────
     public static final String QUEUE_IMAGE_UPLOADED   = "image.uploaded";
     public static final String QUEUE_IMAGE_RESIZED    = "image.resized";
-    public static final String QUEUE_RESIZE_JOBS      = "image.resize.jobs";
-    public static final String QUEUE_COMPRESS_JOBS    = "image.compress.jobs";
-    public static final String QUEUE_WATERMARK_JOBS   = "image.watermark.jobs";
+    public static final String QUEUE_RESIZE_JOBS      = "image.resize";
+    public static final String QUEUE_COMPRESS_JOBS    = "image.compress";
+    public static final String QUEUE_WATERMARK_JOBS   = "image.watermark";
 
     // ── Exchange principal ──────────────────────────────────────────
     public static final String EXCHANGE_IMAGES = "images.exchange";
